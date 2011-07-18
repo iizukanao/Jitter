@@ -65,6 +65,7 @@ baseSource= baseTarget= baseTest= ''
 optionParser= null
 isWatched= {}
 testFiles= []
+sourceRevisions = {}
 
 exports.run= ->
   options = parseOptions()
@@ -112,11 +113,19 @@ watchScript= (source, target, options) ->
   return if isWatched[source]
   isWatched[source]= true
   fs.watchFile source, persistent: true, interval: 250, (curr, prev) ->
-    return if curr.mtime.getTime() is prev.mtime.getTime()
-    compileScript(source, target, options)
-    q runTests
+    return if curr.mtime.getTime() is prev.mtime.getTime() and curr.size is prev.size
+    syncCompileScript source, target, options
 
-compileScript= (source, target, options) ->
+syncCompileScript= (source, target, options) ->
+  rev = sourceRevisions[source] ? 0
+  sourceRevisions[source] = ++rev
+  setTimeout ->
+    if sourceRevisions[source] is rev
+      compileScript source, target, options
+      q runTests
+  , 50
+
+compileScript = (source, target, options) ->
   targetPath = jsPath source, target
   try
     code= fs.readFileSync(source).toString()
